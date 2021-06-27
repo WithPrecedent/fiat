@@ -14,8 +14,8 @@ Contents:
 
 """
 from __future__ import annotations
-import collections.abc
 import dataclasses
+import inspect
 import pathlib
 from types import ModuleType
 from typing import (Any, Callable, ClassVar, Dict, Hashable, Iterable, List, 
@@ -39,151 +39,21 @@ SettingsSources: Type = Union[denovo.configuration.Settings,
                               str]
 
 
+_sources: Mapping[Type, str] = {(denovo.configuration.Settings,
+                                 dict, 
+                                 pathlib.Path, 
+                                 str): 'settings'}
+_validations: MutableSequence[str] = ['settings'
+                                      'identification',
+                                      'clerk', 
+                                      'director',
+                                      'workflow',
+                                      'data',
+                                      'library']
 
-
-""" Iterator for Constructing Project Stages """
- 
-@dataclasses.dataclass
-class Director(collections.abc.Iterator):
-    
-    project: Project = None
-    stages: Sequence[str] = dataclasses.field(default_factory = dict)
-    workshop: ModuleType = denovo.project.workshop
-
-    """ Initialization Methods """
-
-    def __post_init__(self) -> None:
-        """Initializes class instance attributes."""
-        # Calls parent and/or mixin initialization method(s).
-        try:
-            super().__post_init__()
-        except AttributeError:
-            pass
-        # Sets index for iteration.
-        self.index = 0
-        
-    """ Properties """
-    
-    @property
-    def current(self) -> str:
-        return list(self.stages.keys())[self.index]
-    
-    @property
-    def subsequent(self) -> str:
-        try:
-            return list(self.stages.keys())[self.index + 1]
-        except IndexError:
-            return None
-       
-    """ Public Methods """
-    
-    def advance(self) -> None:
-        """Iterates through next stage."""
-        return self.__next__()
-
-    def complete(self) -> None:
-        """Iterates through all stages."""
-        for stage in self.stages:
-            self.advance()
-        return self
-        
-    # def functionify(self, source: str, product: str) -> str:
-    #     """[summary]
-
-    #     Args:
-    #         source (str): [description]
-    #         product (str): [description]
-
-    #     Returns:
-    #         str: [description]
-            
-    #     """        
-    #     name = f'{source}_to_{product}'
-    #     return getattr(self.workshop, name)
-
-    # def kwargify(self, func: Callable) -> Dict[Hashable, Any]:
-    #     """[summary]
-
-    #     Args:
-    #         func (Callable): [description]
-
-    #     Returns:
-    #         Dict[Hashable, Any]: [description]
-            
-    #     """        
-    #     parameters = inspect.signature(func).parameters.keys()
-    #     kwargs = {}
-    #     for parameter in parameters:
-    #         try:
-    #             kwargs[parameter] = getattr(self.project, parameter)
-    #         except AttributeError:
-    #             pass
-    #     return kwargs
-    
-    """ Dunder Methods """
-
-    # def __getattr__(self, attribute: str) -> Any:
-    #     """[summary]
-
-    #     Args:
-    #         attribute (str): [description]
-
-    #     Raises:
-    #         IndexError: [description]
-
-    #     Returns:
-    #         Any: [description]
-            
-    #     """
-    #     if attribute in self.stages:
-    #         if attribute == self.subsequent:
-    #             self.__next__()
-    #         else:
-    #             raise IndexError(
-    #                 f'You cannot call {attribute} because the current stage is '
-    #                 f'{self.current} and the next callable stage is '
-    #                 f'{self.subsequent}')  
-    #     else:
-    #         raise KeyError(f'{attribute} is not in {self.__class__.__name__}')             
-            
-    def __iter__(self) -> Iterable:
-        """Returns iterable of a Project instance.
-        
-        Returns:
-            Iterable: of the Project instance.
-            
-        """
-        return self
- 
-    def __next__(self) -> None:
-        """Completes a Stage instance."""
-        if self.index + 1 < len(self.stages):
-            source = self.stages[self.current]
-            product = self.stages[self.subsequent]
-            # director = self.functionify(source = source, product = product)
-            director = getattr(self.workshop, f'create_{product}')
-            if hasattr(configuration, 'VERBOSE') and configuration.VERBOSE:
-                print(f'Creating {product}')
-            kwargs = {'project': self.project}
-            setattr(self.project, product, director(**kwargs))
-            self.index += 1
-            if hasattr(configuration, 'VERBOSE') and configuration.VERBOSE:
-                print(f'Completed {product}')
-        else:
-            raise StopIteration
-        return self
-
-
-basic_director = Director(stages = {
-    'initialize': 'settings', 
-    'draft': 'workflow', 
-    'execute': 'summary'})
-
-
-""" Primary Interface and Access Point """
 
 @dataclasses.dataclass
-class Project(denovo.quirks.Element, denovo.quirks.Flexible):
+class Project(denovo.quirks.Element, denovo.quirks.Factory):
     """Interface for a fiat project.
     
     Args:
@@ -236,16 +106,13 @@ class Project(denovo.quirks.Element, denovo.quirks.Flexible):
     clerk: ClerkSources = None
     director: fiat.Director = None
     workflow: fiat.Workflow = None
+    library: denovo.containers.Library = None
     data: object = None
     identification: str = None
     automatic: bool = True
-    _validations: MutableSequence[str] = dataclasses.field(
-        default_factory = lambda: ['settings'
-                                   'identification',
-                                   'clerk',
-                                   'director',
-                                   'workflow',
-                                   'data'])
+    sources: ClassVar[Mapping[Type, str]] = _sources
+    validations: ClassVar[MutableSequence[str]] = _validations
+    
     """ Initialization Methods """
 
     def __post_init__(self) -> None:
@@ -262,24 +129,11 @@ class Project(denovo.quirks.Element, denovo.quirks.Flexible):
             getattr(self, f'_validate{validation}')()
         # Sets multiprocessing technique, if necessary.
         self._set_parallelization()
-        # Calls 'execute' if 'automatic' is True.
+        # Calls 'complete' if 'automatic' is True.
         if self.automatic:
-            self.execute()
+            self.complete()
 
     """ Public Methods """
-
-    @classmethod
-    def create(cls, settings: denovo.configuration.Settings) -> Project:
-        """[summary]
-
-        Args:
-            settings (denovo.configuration.Settings): [description]
-
-        Returns:
-            Project: [description]
-            
-        """        
-        return cls.from_settings(settings = settings, **kwargs)
 
     @classmethod
     def from_settings(cls, settings: denovo.configuration.Settings) -> Project:
@@ -291,8 +145,15 @@ class Project(denovo.quirks.Element, denovo.quirks.Flexible):
         Returns:
             Project: [description]
             
-        """        
-        return cls(settings = settings)
+        """
+        if isinstance(settings, denovo.configuration.Settings):
+            return cls(settings = settings)
+        elif (inspect.isclass(settings) 
+              and issubclass(settings, denovo.configuration.Settings)):
+            return cls(settings = settings())
+        else:
+            settings = denovo.configuration.Settings.create(source = settings)
+            return cls(settings = settings)
         
     """ Public Methods """
     
@@ -300,7 +161,7 @@ class Project(denovo.quirks.Element, denovo.quirks.Flexible):
         """Iterates through next stage."""
         return self.__next__()
 
-    def execute(self) -> None:
+    def complete(self) -> None:
         """Iterates through all stages."""
         for stage in self.director.stages:
             self.advance()
@@ -319,10 +180,10 @@ class Project(denovo.quirks.Element, denovo.quirks.Flexible):
             self.settings = denovo.configuration.settings
         elif isinstance(self.settings, (str, pathlib.Path)):
             self.settings = denovo.configuration.bases.settings.create(
-                file_path = self.settings)
+                source = self.settings)
         elif isinstance(self.settings, dict):
             self.settings = denovo.configuration.bases.settings.create(
-                dictionary = self.settings)
+                source = self.settings)
         elif not isinstance(self.settings, denovo.configuration.bases.settings):
             raise TypeError('settings must be a Settings, str, pathlib.Path, '
                             'dict, or None type')

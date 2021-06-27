@@ -24,244 +24,138 @@ from . import configuration
 from . import workshop
 
  
-def settings_to_workbook(source: denovo.options.Settings) -> Workflow:
-    """Converts Settings to a Workflow."""
-    workflow = Workflow()
-    return workflow
-
-def workflow_to_cookbook(source: Workflow) -> Cookbook:
-    """Converts a Workflow to a Cookbook of Recipes."""
-    cookbook = Cookbook()
-    return cookbook
-
-     
 @dataclasses.dataclass
-class Workflow(denovo.structures.Graph):
-    """Stores a workflow as an adjacency list.
+class Director(collections.abc.Iterator):
+    
+    project: Project = None
+    stages: Sequence[str] = dataclasses.field(default_factory = dict)
+    workshop: ModuleType = denovo.project.workshop
 
-    Args:
-        contents (Dict[Hashable, List[Hashable]]): an adjacency list where the 
-            keys are nodes and the values are nodes which the key is connected 
-            to. Defaults to an empty dict.
-        default (Any): default value to return when the 'get' method is used.
-            Defaults to an empty list.
-                  
-    """  
-    contents: denovo.Structures.Adjacency = dataclasses.field(
-        default_factory = dict)
-    components: MutableMapping[str, object] = (
-        denovo.project.configuration.bases.component.library)
+    """ Initialization Methods """
 
+    def __post_init__(self) -> None:
+        """Initializes class instance attributes."""
+        # Calls parent and/or mixin initialization method(s).
+        try:
+            super().__post_init__()
+        except AttributeError:
+            pass
+        # Sets index for iteration.
+        self.index = 0
+        
     """ Properties """
     
     @property
-    def cookbook(self) -> Cookbook:
-        """Returns the stored workflow as a Cookbook of Recipes."""
-        return workflow_to_cookbook(source = self)
-
-    """ Class Methods """
-        
-    @classmethod
-    def create(cls, project: denovo.Project, **kwargs) -> Workflow:
-        """Creates a Workflow instance from 'project'.
-                
-        Returns:
-            Workflow: created from attributes of 'project' and/or any default
-                options if the data for creation is not in 'project'.
-                
-        """
-        return workshop.create_workflow(project = project, **kwargs)
-
-    """ Public Methods """
-
-    def branchify(self, 
-        nodes: Sequence[Sequence[Hashable]],
-        start: Union[Hashable, Sequence[Hashable]] = None) -> None:
-        """Adds parallel paths to the stored data structure.
-
-        Subclasses should ordinarily provide their own methods.
-
-        Args:
-            nodes (Sequence[Sequence[Hashable]]): a list of list of nodes which
-                should have a Cartesian product determined and extended to
-                the stored data structure.
-            start (Union[Hashable, Sequence[Hashable]]): where to add new node 
-                to. If there are multiple nodes in 'start', 'node' will be added 
-                to each of the starting points. If 'start' is None, 'endpoints'
-                will be used. Defaults to None.
-                
-        """
-        if start is None:
-            start = copy.deepcopy(self.endpoints) 
-        paths = list(map(list, itertools.product(*nodes))) 
-        for path in paths:
-            if start:
-                for starting in more_itertools.always_iterable(start):
-                    self.add_edge(start = starting, stop = path[0])
-            elif path[0] not in self.contents:
-                self.add_node(path[0])
-            edges = more_itertools.windowed(path, 2)
-            for edge_pair in edges:
-                self.add_edge(start = edge_pair[0], stop = edge_pair[1]) 
-        return self    
-
-    def extend(self, 
-        nodes: Sequence[Hashable],
-        start: Union[Hashable, Sequence[Hashable]] = None) -> None:
-        """Adds 'nodes' to the stored data structure.
-
-        Args:
-            nodes (Sequence[Hashable]): names of items to add.
-            start (Union[Hashable, Sequence[Hashable]]): where to add new node 
-                to. If there are multiple nodes in 'start', 'node' will be added 
-                to each of the starting points. If 'start' is None, 'endpoints'
-                will be used. Defaults to None.
-                
-        """
-        if any(isinstance(n, (list, tuple)) for n in nodes):
-            nodes = tuple(more_itertools.collapse(nodes))
-        if start is None:
-            start = self.endpoints
-        if start:
-            for starting in more_itertools.always_iterable(start):
-                self.connect(start = starting, stop = nodes[0])
-        else:
-            self.add(nodes[0])
-        edges = more_itertools.windowed(nodes, 2)
-        for edge_pair in edges:
-            self.connect(start = edge_pair[0], stop = edge_pair[1])
-        return self  
-  
-  
-@dataclasses.dataclass
-class Recipe(denovo.base.Lexicon):            
-    """Stores results from a single path through a Workflow.
-
-    Args:
-        contents (Mapping[Any, Any]]): stored dictionary. Defaults to an empty 
-            dict.  
-        default (Any): default value to return when the 'get' method is used.
-        name (str): name of particular path through a workflow for which 
-            'contents' are associated.
-        path (Sequence[str]): the names of the nodes through a workflow 
-            corresponding to the results stored in 'contents'.
-        
-    """
-    contents: Mapping[str, object] = dataclasses.field(default_factory = dict)
-    default: Any = None
-    name: str = None
-    results: denovo.base.Lexicon[str, Any] = dataclasses.field(
-        default_factory = denovo.base.Lexicon)
-                    
-    """ Properties """
+    def current(self) -> str:
+        return list(self.stages.keys())[self.index]
     
     @property
-    def components(self) -> Mapping[str, Any]:
-        return self.contents
-    
-    @components.setter
-    def components(self, value: Mapping[str, Any]) -> None:
-        self.contents = value
-        return self
-    
-    @components.deleter
-    def components(self) -> None:
-        self.contents = None
-        return self
-   
+    def subsequent(self) -> str:
+        try:
+            return list(self.stages.keys())[self.index + 1]
+        except IndexError:
+            return None
+       
     """ Public Methods """
     
-    @classmethod
-    def create(cls, 
-        path: Sequence[str], 
-        components: denovo.base.Catalog,
-        name: str = None) -> Recipe:
-        """
-                
-        """
-        if name is None:
-            name = '_'.join(path)
-        needed = [v for k, v in components.items() if k in path]
-        contents = dict(zip(path, needed))
-        return cls(contents = contents, name = name)
-       
-       
-@dataclasses.dataclass
-class Cookbook(denovo.base.Lexicon):
-    """Stores a collection of Recipes.
-    
-    Args:
-        contents (Mapping[Hashable, Recipe]]): stored dictionary. Defaults to an 
-            empty dict.
-        default (Any): default value to return when the 'get' method is used.
-            Defaults to None.
-              
-    """
-    contents: Mapping[Hashable, Recipe] = dataclasses.field(
-        default_factory = dict)
-    default: Any = Recipe
+    def advance(self) -> None:
+        """Iterates through next stage."""
+        return self.__next__()
 
-    """ Public Class Methods """
-    
-    @classmethod
-    def create(cls, project: denovo.Project, **kwargs) -> Cookbook:
-        """Creates a Cookbook instance from 'project'.
-                
-        Returns:
-            Cookbook: created from attributes of 'project' and/or any default
-                options if the data for creation is not in 'project'.
-                
-        """
-        cookbook = cls(**kwargs)
-        for i, path in enumerate(project.workflow.paths):
-            name = f'{cls.prefix}_{str(i)}'
-            recipe = Recipe.create(
-                path = path, 
-                components = project.workflow.components,
-                name = name)
-            cookbook[name] = recipe
-        return cookbook
-          
-    """ Public Methods """
-    
-    def add(self, recipe: Recipe, prefix: str = None) -> None:
-        """Adds a recipe to 'contents'.
-
-        Args:
-            recipe (Recipe): Recipe instance to store in the cookbook.
-            prefix (str): prefix to use for the key in storing 'recipe'. If it
-                is None, the snake case name of the class of 'recipe' will be
-                used as the prefix. Defaults to None.
-
-        """
-        prefix = prefix or denovo.tools.snakify(recipe.__class__.__name__)
-        key = f'{prefix}_{len(self.contents) + 1}'
-        self.contents[key] = recipe
+    def complete(self) -> None:
+        """Iterates through all stages."""
+        for stage in self.stages:
+            self.advance()
         return self
-  
+        
+    # def functionify(self, source: str, product: str) -> str:
+    #     """[summary]
+
+    #     Args:
+    #         source (str): [description]
+    #         product (str): [description]
+
+    #     Returns:
+    #         str: [description]
             
-@dataclasses.dataclass
-class Summary(denovo.base.Lexicon):
-    """Collects and stores results of all paths through a Workflow.
-    
-    Args:
-        contents (Mapping[Any, Any]]): stored dictionary. Defaults to an empty 
-            dict.
-        default (Any): default value to return when the 'get' method is used.       
-              
-    """
-    contents: Mapping[str, Recipe] = dataclasses.field(default_factory = dict)
-    default: Any = Recipe()
+    #     """        
+    #     name = f'{source}_to_{product}'
+    #     return getattr(self.workshop, name)
 
-    """ Public Class Methods """
-     
-    @classmethod
-    def create(cls, project: fiat.Project, **kwargs) -> Summary:
-        """Creates a Summary instance from 'project'.
-                
+    # def kwargify(self, func: Callable) -> Dict[Hashable, Any]:
+    #     """[summary]
+
+    #     Args:
+    #         func (Callable): [description]
+
+    #     Returns:
+    #         Dict[Hashable, Any]: [description]
+            
+    #     """        
+    #     parameters = inspect.signature(func).parameters.keys()
+    #     kwargs = {}
+    #     for parameter in parameters:
+    #         try:
+    #             kwargs[parameter] = getattr(self.project, parameter)
+    #         except AttributeError:
+    #             pass
+    #     return kwargs
+    
+    """ Dunder Methods """
+
+    # def __getattr__(self, attribute: str) -> Any:
+    #     """[summary]
+
+    #     Args:
+    #         attribute (str): [description]
+
+    #     Raises:
+    #         IndexError: [description]
+
+    #     Returns:
+    #         Any: [description]
+            
+    #     """
+    #     if attribute in self.stages:
+    #         if attribute == self.subsequent:
+    #             self.__next__()
+    #         else:
+    #             raise IndexError(
+    #                 f'You cannot call {attribute} because the current stage is '
+    #                 f'{self.current} and the next callable stage is '
+    #                 f'{self.subsequent}')  
+    #     else:
+    #         raise KeyError(f'{attribute} is not in {self.__class__.__name__}')             
+            
+    def __iter__(self) -> Iterable:
+        """Returns iterable of a Project instance.
+        
         Returns:
-            Summary: created from attributes of 'project' and/or any default
-                options if the data for creation is not in 'project'.
-                
+            Iterable: of the Project instance.
+            
         """
-        return workshop.create_summary(project = project, **kwargs)
+        return self
+ 
+    def __next__(self) -> None:
+        """Completes a Stage instance."""
+        if self.index + 1 < len(self.stages):
+            source = self.stages[self.current]
+            product = self.stages[self.subsequent]
+            # director = self.functionify(source = source, product = product)
+            director = getattr(self.workshop, f'create_{product}')
+            if hasattr(configuration, 'VERBOSE') and configuration.VERBOSE:
+                print(f'Creating {product}')
+            kwargs = {'project': self.project}
+            setattr(self.project, product, director(**kwargs))
+            self.index += 1
+            if hasattr(configuration, 'VERBOSE') and configuration.VERBOSE:
+                print(f'Completed {product}')
+        else:
+            raise StopIteration
+        return self
+
+
+basic_director = Director(stages = {
+    'initialize': 'settings', 
+    'draft': 'workflow', 
+    'execute': 'summary'})
