@@ -5,12 +5,7 @@ Copyright 2020-2021, Corey Rayburn Yung
 License: Apache-2.0 (https://www.apache.org/licenses/LICENSE-2.0)
 
 Contents:
-    Parameters
-    Directive
-    Outline
-    Component
-    Result
-    Summary
+    Project
 
 """
 from __future__ import annotations
@@ -42,19 +37,6 @@ SettingsSources: Type = Union[denovo.configuration.Settings,
 PARALLELIZE: bool = False
 GPU: bool = False
 VERBOSE: bool = False
-
-
-_sources: Mapping[Type, str] = {(denovo.configuration.Settings,
-                                 dict, 
-                                 pathlib.Path, 
-                                 str): 'settings'}
-_validations: MutableSequence[str] = ['outline'
-                                      'identification',
-                                      'clerk', 
-                                      'director',
-                                      'workflow',
-                                      'data',
-                                      'library']
 
 
 @dataclasses.dataclass
@@ -91,8 +73,6 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
         automatic (bool): whether to automatically iterate through the project
             stages (True) or whether it must be iterating manually (False). 
             Defaults to True.
-    
-    Attributes:
         library (ClassVar[nodes.Library]): a class attribute containing a 
             dot-accessible dictionary of base classes. Each base class has 
             'subclasses' and 'instances' class attributes which contain catalogs
@@ -100,10 +80,6 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
             attribute is inherited from Keystone. Changing this attribute will 
             entirely replace the existing links between this instance and all 
             other base classes.
-        workflow (core.Stage): a workflow of a project derived from 'outline'. 
-            Defaults to None.
-        summary (core.Stage): a summary of a project execution derived from 
-            'workflow'. Defaults to None.
             
     """
     name: str = None
@@ -116,8 +92,16 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     clerk: denovo.filing.Clerk = None
     identification: str = None
     automatic: bool = True
-    sources: ClassVar[Mapping[Type, str]] = _sources
-    validations: ClassVar[MutableSequence[str]] = _validations
+    sources: ClassVar[Mapping[Type, str]] = {(denovo.configuration.Settings,
+                                              dict, 
+                                              pathlib.Path, 
+                                              str): 'settings'}
+    validations: ClassVar[MutableSequence[str]] = ['outline'
+                                                   'identification',
+                                                   'clerk', 
+                                                   'director',
+                                                   'library',
+                                                   'workflow']
     
     """ Initialization Methods """
 
@@ -142,28 +126,27 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     """ Public Methods """
 
     @classmethod
-    def from_settings(cls, 
-                      settings: SettingsSources,
-                      clerk: ClerkSources = None,
-                      **kwargs) -> Project:
+    def from_settings(cls, settings: SettingsSources, **kwargs) -> Project:
         """[summary]
 
         Args:
-            outline (denovo.configuration.Outline): [description]
+            settings (SettingsSources): [description]
 
         Returns:
             Project: [description]
             
-        """
+        """        
         
         if isinstance(settings, denovo.configuration.Settings):
-            pass
+            outline = settings
         elif (inspect.isclass(settings) 
-              and issubclass(outline, denovo.configuration.Outline)):
-            return cls(outline = outline())
+              and issubclass(settings, denovo.configuration.Settings)):
+            outline = settings()
         else:
-            outline = denovo.configuration.Outline.create(source = outline)
-            return cls(outline = outline)
+            outline = fiat.Outline.create(source = settings)
+        if not isinstance(outline, fiat.Outline):
+            outline = fiat.Outline.create(source = settings.contents)
+        return cls(outline = outline, **kwargs)
         
     """ Public Methods """
     
@@ -187,15 +170,15 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
         
         """
         if self.outline is None:
-            self.outline = denovo.configuration.outline
-        elif isinstance(self.outline, (str, pathlib.Path)):
-            self.outline = denovo.configuration.bases.outline.create(
-                source = self.outline)
-        elif isinstance(self.outline, dict):
-            self.outline = denovo.configuration.bases.outline.create(
-                source = self.outline)
-        elif not isinstance(self.outline, denovo.configuration.bases.outline):
-            raise TypeError('outline must be an Outline, str, pathlib.Path, '
+            self.outline = fiat.Outline()
+        elif isinstance(self.outline, (str, pathlib.Path, dict)):
+            self.outline = fiat.create(source = self.outline)
+        elif isinstance(self.outline, denovo.configuration.Settings):
+            if not isinstance(self.outline, fiat.Outline):
+                self.outline = fiat.Outline.create(
+                    source = self.outline.contents)
+        else:
+            raise TypeError('outline must be a Settings, str, pathlib.Path, '
                             'dict, or None type')
         return self      
     
@@ -209,8 +192,43 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
         if self.identification is None:
             self.identification = (
                 denovo.tools.datetime_string(prefix = self.name))
+        elif not isinstance(self.identification, str):
+            raise TypeError('identification must be a str or None type')
         return self
     
+    def _validate_clerk(self) -> None:
+        """Creates or validates 'clerk'."""
+        if self.clerk is None:
+            self.clerk = denovo.filing.Clerk(settings = self.outline)
+        elif not isinstance(self.clerk, denovo.filing.Clerk):
+            raise TypeError('clerk must be a Clerk, str, pathlib.Path, or None '
+                            'type')
+        return self
+
+    def _validate_director(self) -> None:
+        """Creates or validates 'director'."""
+        if self.director is None:
+            self.director = fiat.Director(project = self)
+        elif not isinstance(self.director, fiat.Director):
+            raise TypeError('director must be a Director or None type')
+        return self
+
+    def _validate_library(self) -> None:
+        """Creates or validates 'workflow'."""
+        if self.library is None:
+            self.library = denovo.containers.Library()
+        elif not isinstance(self.library, denovo.containers.Library):
+            raise TypeError('library must be a Library or None type')
+        return self
+    
+    def _validate_workflow(self) -> None:
+        """Creates or validates 'library'."""
+        if self.workflow is None:
+            self.workflow = fiat.Workflow(project = self)
+        elif not isinstance(self.workflow, fiat.Workflow):
+            raise TypeError('workflow must be a Workflow or None type')
+        return self
+
     def _set_parallelization(self) -> None:
         """Sets multiprocessing method based on 'outline'."""
         if (self.outline['fiat']['parallelize'] 

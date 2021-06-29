@@ -25,7 +25,7 @@ import fiat
 
 
 @dataclasses.dataclass
-class Director(collections.abc.Iterator):
+class Director(fiat.Worker):
     
     project: fiat.Project = None
     stages: Sequence[str] = dataclasses.field(default_factory = list)

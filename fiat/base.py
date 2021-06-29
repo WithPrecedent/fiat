@@ -31,7 +31,7 @@ WorkflowSources: Type = Union[denovo.structures.DirectedGraph,
  
 
 @dataclasses.dataclass    
-class Parameters(fiat.base.Lexicon):
+class Parameters(denovo.base.Lexicon):
     """Creates and stores parameters for a Component.
     
     The use of Parameters is entirely optional, but it provides a handy tool
@@ -169,11 +169,11 @@ class Stage(denovo.containers.Lexicon, abc.ABC):
 
 @dataclasses.dataclass
 class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
-    """Keystone class for parts of an amicus workflow.
+    """Keystone class for parts of an fiat workflow.
 
     Args:
         name (str): designates the name of a class instance that is used for 
-            internal referencing throughout amicus. For example, if an amicus 
+            internal referencing throughout fiat. For example, if a fiat 
             instance needs settings from an Outline instance, 'name' should 
             match the appropriate section name in an Outline instance. Defaults 
             to None. 
@@ -200,7 +200,6 @@ class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
     parameters: MutableMapping[Hashable, Any] = dataclasses.field(
         default_factory = Parameters)
     iterations: Union[int, str] = 1
-    default: Any = dataclasses.field(default_factory = list)
 
     """ Public Methods """  
 
@@ -219,15 +218,15 @@ class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
             self.extend(nodes = nodes)
         return self       
 
-    def implement(self, project: amicus.Project, **kwargs) -> amicus.Project:
+    def implement(self, project: fiat.Project, **kwargs) -> fiat.Project:
         """Applies 'contents' to 'project'.
         
         Args:
-            project (amicus.Project): instance from which data needed for 
+            project (fiat.Project): instance from which data needed for 
                 implementation should be derived and all results be added.
 
         Returns:
-            amicus.Project: with possible changes made.
+            fiat.Project: with possible changes made.
             
         """
         return self._implement_in_serial(project = project, **kwargs)    
@@ -235,12 +234,12 @@ class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
     """ Private Methods """
 
     def _implement_in_serial(self, 
-        project: amicus.Project, 
-        **kwargs) -> amicus.Project:
+                             project: fiat.Project,
+                             **kwargs) -> fiat.Project:
         """Applies stored nodes to 'project' in order.
 
         Args:
-            project (Project): amicus project to apply changes to and/or
+            project (Project): fiat project to apply changes to and/or
                 gather needed data from.
                 
         Returns:
@@ -252,8 +251,8 @@ class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
         return project
        
     def _serial_order(self, 
-        name: str,
-        subcomponents: Dict[str, List[str]]) -> List[Hashable]:
+                      name: str,
+                      subcomponents: Dict[str, List[str]]) -> List[Hashable]:
         """[summary]
 
         Args:
