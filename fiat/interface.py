@@ -27,7 +27,7 @@ import denovo
 
 import fiat
 
-    
+
 ClerkSources: Type = Union[denovo.filing.Clerk, 
                            Type[denovo.filing.Clerk], 
                            pathlib.Path, 
@@ -39,11 +39,16 @@ SettingsSources: Type = Union[denovo.configuration.Settings,
                               str]
 
 
+PARALLELIZE: bool = False
+GPU: bool = False
+VERBOSE: bool = False
+
+
 _sources: Mapping[Type, str] = {(denovo.configuration.Settings,
                                  dict, 
                                  pathlib.Path, 
                                  str): 'settings'}
-_validations: MutableSequence[str] = ['settings'
+_validations: MutableSequence[str] = ['outline'
                                       'identification',
                                       'clerk', 
                                       'director',
@@ -59,14 +64,14 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     Args:
         name (str): designates the name of a class instance that is used for 
             internal referencing throughout fiat. For example, if a fiat 
-            instance needs settings from a Settings instance, 'name' should 
-            match the appropriate section name in a Settings instance. Defaults 
+            instance needs outline from an Outline instance, 'name' should 
+            match the appropriate section name in an Outline instance. Defaults 
             to None. 
-        settings (SettingsSources): a Settings-compatible subclass or instance, 
+        outline (OutlineSources): an Outline-compatible subclass or instance, 
             a str or pathlib.Path containing the file path where a file of a 
-            supported file type with settings for a Settings instance is 
-            located, or a 2-level mapping containing settings. Defaults to the 
-            default Settings instance.
+            supported file type with outline for an Outline instance is 
+            located, or a 2-level mapping containing outline. Defaults to the 
+            default Outline instance.
         clerk (ClerkSources): a Clerk-compatible class or a str or pathlib.Path 
             containing the full path of where the root folder should be located 
             for file input and output. A 'clerk' must contain all file path and 
@@ -102,12 +107,13 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
             
     """
     name: str = None
-    settings: SettingsSources = None
-    clerk: ClerkSources = None
-    director: fiat.Director = None
+    outline: fiat.Outline = None
     workflow: fiat.Workflow = None
+    report: fiat.Report = None
+    director: fiat.Director = None
     library: denovo.containers.Library = None
     data: object = None
+    clerk: denovo.filing.Clerk = None
     identification: str = None
     automatic: bool = True
     sources: ClassVar[Mapping[Type, str]] = _sources
@@ -136,24 +142,28 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     """ Public Methods """
 
     @classmethod
-    def from_settings(cls, settings: denovo.configuration.Settings) -> Project:
+    def from_settings(cls, 
+                      settings: SettingsSources,
+                      clerk: ClerkSources = None,
+                      **kwargs) -> Project:
         """[summary]
 
         Args:
-            settings (denovo.configuration.Settings): [description]
+            outline (denovo.configuration.Outline): [description]
 
         Returns:
             Project: [description]
             
         """
+        
         if isinstance(settings, denovo.configuration.Settings):
-            return cls(settings = settings)
+            pass
         elif (inspect.isclass(settings) 
-              and issubclass(settings, denovo.configuration.Settings)):
-            return cls(settings = settings())
+              and issubclass(outline, denovo.configuration.Outline)):
+            return cls(outline = outline())
         else:
-            settings = denovo.configuration.Settings.create(source = settings)
-            return cls(settings = settings)
+            outline = denovo.configuration.Outline.create(source = outline)
+            return cls(outline = outline)
         
     """ Public Methods """
     
@@ -169,23 +179,23 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
                      
     """ Private Methods """
     
-    def _validate_settings(self) -> None:
-        """Validates the 'settings' attribute.
+    def _validate_outline(self) -> None:
+        """Validates the 'outline' attribute.
         
-        If 'settings' is None, the default 'settings' in 'configuration' is
+        If 'outline' is None, the default 'outline' in 'configuration' is
         used.
         
         """
-        if self.settings is None:
-            self.settings = denovo.configuration.settings
-        elif isinstance(self.settings, (str, pathlib.Path)):
-            self.settings = denovo.configuration.bases.settings.create(
-                source = self.settings)
-        elif isinstance(self.settings, dict):
-            self.settings = denovo.configuration.bases.settings.create(
-                source = self.settings)
-        elif not isinstance(self.settings, denovo.configuration.bases.settings):
-            raise TypeError('settings must be a Settings, str, pathlib.Path, '
+        if self.outline is None:
+            self.outline = denovo.configuration.outline
+        elif isinstance(self.outline, (str, pathlib.Path)):
+            self.outline = denovo.configuration.bases.outline.create(
+                source = self.outline)
+        elif isinstance(self.outline, dict):
+            self.outline = denovo.configuration.bases.outline.create(
+                source = self.outline)
+        elif not isinstance(self.outline, denovo.configuration.bases.outline):
+            raise TypeError('outline must be an Outline, str, pathlib.Path, '
                             'dict, or None type')
         return self      
     
@@ -202,8 +212,8 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
         return self
     
     def _set_parallelization(self) -> None:
-        """Sets multiprocessing method based on 'settings'."""
-        if (self.settings['fiat']['parallelize'] 
+        """Sets multiprocessing method based on 'outline'."""
+        if (self.outline['fiat']['parallelize'] 
                 and not globals()['multiprocessing']):
             import multiprocessing
             multiprocessing.set_start_method('spawn') 

@@ -24,10 +24,11 @@ from typing import (Any, Callable, ClassVar, Dict, Hashable, Iterable, List,
 import denovo
 
 
-importables: Dict[str, str] = {
-    'structures': 'core.structures',
-    'Task': 'core.structures.Task',
-    'Workflow': 'core.structures.Workflow'}
+importables: Dict[str, str] = {'Director': 'base.Director',
+                               'Parameters': 'base.Parameters',
+                               'Project': 'interface.Project',
+                               'Task': 'base.Task',
+                               'Workflow': 'base.Workflow'}
 
 def __getattr__(name: str) -> Any:
     """Lazily imports modules and items within them as package attributes.
