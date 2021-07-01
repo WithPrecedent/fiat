@@ -21,6 +21,26 @@ import fiat
 
 """ Configuration Parsing Functions """
 
+def settings_to_outline(settings: fiat.shared.bases.settings, 
+                        **kwargs) -> fiat.Outline:
+    """[summary]
+
+    Args:
+        settings (fiat.shared.bases.settings): [description]
+
+    Returns:
+        Outline: derived from 'settings'.
+        
+    """
+    suffixes = denovo.shared.library.subclasses.suffixes
+    outline = fiat.Outline(**kwargs)
+    section_base = fiat.stages.Section
+    for name, section in settings.items():
+        if any(k.endswith(suffixes) for k in section.keys()):
+            outline[name] = section_base.from_settings(settings = settings,
+                                                       name = name)
+    return outline
+    
 def create_workflow(project: fiat.Project, **kwargs) -> fiat.Workflow:
     """[summary]
 

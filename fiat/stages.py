@@ -27,40 +27,30 @@ WorkflowSources: Type = Union[denovo.structures.System,
                               denovo.structures.Edges, 
                               denovo.structures.Matrix, 
                               denovo.structures.Nodes]
- 
- 
+
 
 @dataclasses.dataclass
-class Outline(denovo.configuration.Settings):
-    """fiat project settings with convenient accessors.
+class Section(denovo.quirks.Factory, denovo.containers.Lexicon):
+    """Section of Outline with connections.
 
     Args:
-        contents (denovo.configuration.TwoLevel): a two-level nested dict for 
-            storing configuration options. Defaults to en empty dict.
-        default (Any): default value to return when the 'get' method is used.
-            Defaults to an empty dict.
-        default (Mapping[str, Mapping[str]]): any default options that should
-            be used when a user does not provide the corresponding options in 
-            their configuration settings. Defaults to an empty dict.
-        infer_types (bool): whether values in 'contents' are converted to other 
-            datatypes (True) or left alone (False). If 'contents' was imported 
-            from an .ini file, all values will be strings. Defaults to True.
-
+        contents (MutableMapping[Hashable, Any]]): stored dictionary. Defaults 
+            to an empty dict.
+        default_factory (Any): default value to return when the 'get' method is 
+            used. Defaults to None.
+                          
     """
-    contents: denovo.configuration.TwoLevel = dataclasses.field(
-        default_factory = dict)
-    default_factory: Any = dataclasses.field(default_factory = dict)
-    default: Mapping[str, Mapping[str, Any]] = dataclasses.field(
-        default_factory = dict)
-    infer_types: bool = True
-    project: fiat.Project = None
-    sources: ClassVar[Mapping[Type, str]] = denovo.configuration._sources
+    contents: Dict[str, Any] = dataclasses.field(default_factory = dict)
+    default_factory: Any = None
+    name: str = None
+    sources: ClassVar[Mapping[Type, str]] = {
+        fiat.shared.bases.settings : 'settings'}
 
     """ Properties """
     
-    # @property
-    # def bases(self) -> Dict[str, str]:
-    #     return self._get_bases()
+    @property
+    def bases(self) -> Dict[str, str]:
+        return self._get_bases()
     
     @property
     def connections(self) -> Dict[str, List[str]]:
@@ -75,35 +65,183 @@ class Outline(denovo.configuration.Settings):
         key_nodes = list(self.connections.keys())
         value_nodes = list(
             itertools.chain.from_iterable(self.connections.values()))
-        return denovo.tools.deduplicate(iterable = key_nodes + value_nodes) 
+        return denovo.tools.deduplicate(item = key_nodes + value_nodes) 
+
+    @property
+    def other(self) -> Dict[str, str]:
+        return self._get_other()
     
     @property
-    def parents(self) -> Dict[str, str]:
-        return self._get_parents()
+    def suffixes(self) -> List[str]:
+        return denovo.shared.library.subclasses.suffixes
+
+    """ Public Methods """
+
+    @classmethod
+    def from_settings(cls, 
+                      settings: fiat.shared.bases.settings,
+                      name: str,
+                      **kwargs) -> Section:
+        """[summary]
+
+        Args:
+            settings (fiat.shared.bases.settings): [description]
+            name (str):
+
+        Returns:
+            Section: derived from 'settings'.
             
+        """        
+        return cls(contents = settings[name], name = name, **kwargs)    
+        
     """ Private Methods """
 
-    # def _get_bases(self) -> Dict[str, str]:  
-    #     suffixes = self.project.library.subclasses.suffixes 
-    #     parents = self.parents
-    #     bases = {}
-    #     for name in self.nodes:
-    #         section = parents[name]
-    #         component_keys = [
-    #             k for k in self[section].keys() if k.endswith(suffixes)]
-    #         if component_keys:
-    #             bases[name] = settings_to_base(
-    #                 name = name,
-    #                 section = parents[name])
-    #             for key in component_keys:
-    #                 prefix, suffix = denovo.tools.divide_string(key)
-    #                 values = denovo.tools.listify(self[section][key])
-    #                 if suffix.endswith('s'):
-    #                     design = suffix[:-1]
-    #                 else:
-    #                     design = suffix            
-    #                 bases.update(dict.fromkeys(values, design))
-    #     return bases
+    def _get_bases(self) -> Dict[str, str]:  
+        """[summary]
+
+        Returns:
+            Dict[str, str]: [description]
+            
+        """
+        bases = {}
+        for key in self.connections.keys():
+            prefix, suffix = denovo.tools.divide_string(key)
+            values = denovo.tools.listify(self[key])
+            if suffix.endswith('s'):
+                base = suffix[:-1]
+            else:
+                base = suffix            
+            bases.update(dict.fromkeys(values, base))
+        return bases
+         
+    def _get_connections(self) -> Dict[str, List[str]]:
+        """[summary]
+
+        Returns:
+            Dict[str, List[str]]: [description]
+            
+        """
+        connections = {}
+        keys = [k for k in self.keys() if k.endswith(self.suffixes)]
+        for key in keys:
+            prefix, suffix = denovo.tools.divide_string(key)
+            values = denovo.tools.listify(self[key])
+            if prefix == suffix:
+                if prefix in connections:
+                    connections[self.name].extend(values)
+                else:
+                    connections[self.name] = values
+            else:
+                if prefix in connections:
+                    connections[prefix].extend(values)
+                else:
+                    connections[prefix] = values
+        return connections
+
+    def _get_designs(self) -> Dict[str, str]:  
+        """[summary]
+
+        Returns:
+            Dict[str, str]: [description]
+            
+        """
+        designs = {}
+        design_keys = [k for k in self.keys() if k.endswith('_design')]
+        for key in design_keys:
+            prefix, suffix = denovo.tools.divide_string(key)
+            designs[prefix] = self[key]
+        return designs
+    
+    def _get_other(self) -> Dict[str, str]:
+        """[summary]
+
+        Returns:
+            Dict[str, str]: [description]
+            
+        """
+        design_keys = [k for k in self.keys() if k.endswith('_design')]
+        connection_keys = [k for k in self.keys() if k.endswith(self.suffixes)]
+        exclude = design_keys + connection_keys
+        return {k: v for k, v in self.contents.items() if k not in exclude}
+        
+
+@dataclasses.dataclass
+class Outline(denovo.quirks.Factory, denovo.containers.Lexicon):
+    """Organized fiat project settings with convenient accessors.
+
+    Args:
+        contents (denovo.configuration.TwoLevel): a two-level nested dict for 
+            storing configuration options. Defaults to en empty dict.
+        default (Any): default value to return when the 'get' method is used.
+            Defaults to an empty dict.
+        default (Mapping[str, Mapping[str]]): any default options that should
+            be used when a user does not provide the corresponding options in 
+            their configuration settings. Defaults to an empty dict.
+        infer_types (bool): whether values in 'contents' are converted to other 
+            datatypes (True) or left alone (False). If 'contents' was imported 
+            from an .ini file, all values will be strings. Defaults to True.
+
+    """
+    contents: MutableMapping[str, Section] = dataclasses.field(
+        default_factory = dict)
+    default_factory: Any = None
+    sources: ClassVar[Mapping[Type, str]] = {
+        fiat.shared.bases.settings : 'settings'}
+    
+    """ Properties """
+    
+    @property
+    def bases(self) -> Dict[str, str]:
+        return self._get_bases()
+    
+    @property
+    def connections(self) -> Dict[str, List[str]]:
+        return self._get_connections()
+
+    @property
+    def designs(self) -> Dict[str, str]:
+        return self._get_designs()
+
+    @property
+    def nodes(self) -> List[str]:
+        key_nodes = list(self.connections.keys())
+        value_nodes = list(
+            itertools.chain.from_iterable(self.connections.values()))
+        return denovo.tools.deduplicate(item = key_nodes + value_nodes) 
+
+    @property
+    def other(self) -> Dict[str, Any]:
+        return self._get_other()
+    
+    """ Public Methods """
+
+    @classmethod
+    def from_settings(cls, 
+                      settings: fiat.shared.bases.settings,
+                      **kwargs) -> Outline:
+        """[summary]
+
+        Args:
+
+        Returns:
+            Outline: derived from 'settings'.
+            
+        """
+        return fiat.workshop.settings_to_outline(settings = settings, **kwargs)
+             
+    """ Private Methods """
+
+    def _get_bases(self) -> Dict[str, str]:  
+        """[summary]
+
+        Returns:
+            Dict[str, str]: [description]
+            
+        """
+        bases = {}
+        for section in self.values():
+            bases.update(section.bases)
+        return bases
       
     def _get_connections(self) -> Dict[str, List[str]]:
         """[summary]
@@ -112,23 +250,13 @@ class Outline(denovo.configuration.Settings):
             Dict[str, List[str]]: [description]
             
         """
-        suffixes = self.project.library.subclasses.suffixes 
         connections = {}
-        for name, section in self.items():
-            component_keys = [k for k in section.keys() if k.endswith(suffixes)]
-            for key in component_keys:
-                prefix, suffix = denovo.tools.divide_string(key)
-                values = denovo.tools.listify(section[key])
-                if prefix == suffix:
-                    if name in connections:
-                        connections[name].extend(values)
-                    else:
-                        connections[name] = values
+        for section in self.values():
+            for key, links in section.connections.items():
+                if key in connections:
+                    connections[key].extend(links)
                 else:
-                    if prefix in connections:
-                        connections[prefix].extend(values)
-                    else:
-                        connections[prefix] = values
+                    connections[key] = links
         return connections
     
     def _get_designs(self) -> Dict[str, str]:  
@@ -138,40 +266,24 @@ class Outline(denovo.configuration.Settings):
             Dict[str, str]: [description]
             
         """
-        suffixes = self.project.library.subclasses.suffixes 
-        parents = self.parents
         designs = {}
-        for name in self.nodes:
-            section = parents[name]
-            component_keys = [
-                k for k in self[section].keys() if k.endswith(suffixes)]
-            if component_keys:
-                designs[name] = settings_to_base(
-                    name = name,
-                    section = parents[name])
-                for key in component_keys:
-                    prefix, suffix = denovo.tools.divide_string(key)
-                    values = denovo.tools.listify(self[section][key])
-                    if suffix.endswith('s'):
-                        design = suffix[:-1]
-                    else:
-                        design = suffix            
-                    designs.update(dict.fromkeys(values, design))
+        for section in self.values():
+            designs.update(section.designs)
         return designs
     
-    def _get_parents(self) -> Dict[str, str]:
-        suffixes = self.project.library.subclasses.suffixes 
-        parents = {}
-        for name, section in self.items():
-            component_keys = [k for k in section.keys() if k.endswith(suffixes)]
-            if component_keys:
-                parents[name] = name
-                for key in component_keys:
-                    values = denovo.tools.listify(section[key])
-                    parents.update(dict.fromkeys(values, name))
-        return parents
+    def _get_other(self) -> Dict[str, str]:  
+        """[summary]
 
-    
+        Returns:
+            Dict[str, str]: [description]
+            
+        """
+        other = {}
+        for section in self.values():
+            other.update(section.other)
+        return other
+
+
 @dataclasses.dataclass
 class Workflow(denovo.structures.System):
     """Project workflow implementation as a directed acyclic graph (DAG).
@@ -199,7 +311,7 @@ class Workflow(denovo.structures.System):
     @property
     def cookbook(self) -> fiat.base.Cookbook:
         """Returns the stored workflow as a Cookbook of Recipes."""
-        return workflow_to_cookbook(source = self)
+        return fiat.workshop.workflow_to_cookbook(source = self)
             
     """ Dunder Methods """
 

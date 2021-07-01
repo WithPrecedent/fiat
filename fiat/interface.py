@@ -12,7 +12,6 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import pathlib
-from types import ModuleType
 from typing import (Any, Callable, ClassVar, Dict, Hashable, Iterable, List, 
                     Mapping, MutableMapping, MutableSequence, Optional, 
                     Sequence, Set, Tuple, Type, Union)
@@ -22,21 +21,6 @@ import denovo
 
 import fiat
 
-
-ClerkSources: Type = Union[denovo.filing.Clerk, 
-                           Type[denovo.filing.Clerk], 
-                           pathlib.Path, 
-                           str]   
-SettingsSources: Type = Union[denovo.configuration.Settings, 
-                              Type[denovo.configuration.Settings], 
-                              Mapping[str, Mapping[str, Any]],
-                              pathlib.Path, 
-                              str]
-
-
-PARALLELIZE: bool = False
-GPU: bool = False
-VERBOSE: bool = False
 
 
 @dataclasses.dataclass
@@ -83,16 +67,16 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
             
     """
     name: str = None
-    outline: fiat.Outline = None
-    workflow: fiat.Workflow = None
-    report: fiat.Report = None
-    director: fiat.Director = None
-    library: denovo.containers.Library = None
+    outline: fiat.shared.bases.outline = None
+    workflow: fiat.shared.bases.workflow = None
+    report: fiat.shared.bases.report = None
+    director: fiat.shared.bases.director = None
+    library: fiat.shared.bases.library = fiat.shared.library
     data: object = None
-    clerk: denovo.filing.Clerk = None
+    clerk: fiat.shared.bases.clerk = None
     identification: str = None
     automatic: bool = True
-    sources: ClassVar[Mapping[Type, str]] = {(denovo.configuration.Settings,
+    sources: ClassVar[Mapping[Type, str]] = {(fiat.shared.bases.settings,
                                               dict, 
                                               pathlib.Path, 
                                               str): 'settings'}
@@ -100,7 +84,6 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
                                                    'identification',
                                                    'clerk', 
                                                    'director',
-                                                   'library',
                                                    'workflow']
     
     """ Initialization Methods """
@@ -129,7 +112,9 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     """ Public Methods """
 
     @classmethod
-    def from_settings(cls, settings: SettingsSources, **kwargs) -> Project:
+    def from_settings(cls, 
+                      settings: fiat.shared.SettingsSources, 
+                      **kwargs) -> Project:
         """[summary]
 
         Args:
@@ -140,15 +125,14 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
             
         """        
         
-        if isinstance(settings, denovo.configuration.Settings):
-            outline = settings
+        if isinstance(settings, fiat.shared.bases.settings):
+            outline = fiat.shared.bases.outline.create(source = settings)
         elif (inspect.isclass(settings) 
-              and issubclass(settings, denovo.configuration.Settings)):
-            outline = settings()
+              and issubclass(settings, fiat.shared.bases.settings)):
+            outline = fiat.shared.bases.outline.create(source = settings())
         else:
-            outline = fiat.Outline.create(source = settings)
-        if not isinstance(outline, fiat.Outline):
-            outline = fiat.Outline.create(source = settings.contents)
+            settings = fiat.shared.bases.settings.create(source = settings)
+            outline = fiat.shared.bases.outline.create(source = settings)
         return cls(outline = outline, **kwargs)
         
     """ Public Methods """
@@ -165,6 +149,22 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
                      
     """ Private Methods """
     
+    def _store_shared_settings(self) -> None:
+        """[summary]
+
+        Returns:
+            [type]: [description]
+            
+        """
+        attributes = dir(fiat.shared)
+        constants = [a.is_upper() for a in attributes]
+        relevant = ['general', 'denovo', 'fiat', self.name]
+        sections = {k: v for k, v in self.settings.items() if k in relevant}
+        constant_keys = [k for k in sections.keys() if k.upper() in constants]
+        for key in constant_keys:
+            setattr(fiat.shared, key.upper(), sections[key])
+        return self
+                  
     def _validate_outline(self) -> None:
         """Validates the 'outline' attribute.
         
@@ -173,12 +173,12 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
         
         """
         if self.outline is None:
-            self.outline = fiat.Outline()
+            self.outline = fiat.shared.bases.outline()
         elif isinstance(self.outline, (str, pathlib.Path, dict)):
             self.outline = fiat.create(source = self.outline)
-        elif isinstance(self.outline, denovo.configuration.Settings):
-            if not isinstance(self.outline, fiat.Outline):
-                self.outline = fiat.Outline.create(
+        elif isinstance(self.outline, fiat.shared.bases.settings):
+            if not isinstance(self.outline, fiat.shared.bases.outline):
+                self.outline = fiat.shared.bases.outline.create(
                     source = self.outline.contents)
         else:
             raise TypeError('outline must be a Settings, str, pathlib.Path, '
@@ -202,8 +202,8 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     def _validate_clerk(self) -> None:
         """Creates or validates 'clerk'."""
         if self.clerk is None:
-            self.clerk = denovo.filing.Clerk(settings = self.outline)
-        elif not isinstance(self.clerk, denovo.filing.Clerk):
+            self.clerk = fiat.shared.bases.clerk(settings = self.outline)
+        elif not isinstance(self.clerk, fiat.shared.bases.clerk):
             raise TypeError('clerk must be a Clerk, str, pathlib.Path, or None '
                             'type')
         return self
@@ -211,31 +211,22 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     def _validate_director(self) -> None:
         """Creates or validates 'director'."""
         if self.director is None:
-            self.director = fiat.Director(project = self)
-        elif not isinstance(self.director, fiat.Director):
+            self.director = fiat.shared.bases.director(project = self)
+        elif not isinstance(self.director, fiat.shared.bases.director):
             raise TypeError('director must be a Director or None type')
-        return self
-
-    def _validate_library(self) -> None:
-        """Creates or validates 'workflow'."""
-        if self.library is None:
-            self.library = denovo.containers.Library()
-        elif not isinstance(self.library, denovo.containers.Library):
-            raise TypeError('library must be a Library or None type')
         return self
     
     def _validate_workflow(self) -> None:
         """Creates or validates 'library'."""
         if self.workflow is None:
-            self.workflow = fiat.Workflow(project = self)
-        elif not isinstance(self.workflow, fiat.Workflow):
+            self.workflow = fiat.shared.bases.workflow(project = self)
+        elif not isinstance(self.workflow, fiat.shared.bases.workflow):
             raise TypeError('workflow must be a Workflow or None type')
         return self
 
     def _set_parallelization(self) -> None:
         """Sets multiprocessing method based on 'outline'."""
-        if (self.outline['fiat']['parallelize'] 
-                and not globals()['multiprocessing']):
+        if fiat.shared.PARALLELIZE and not globals()['multiprocessing']:
             import multiprocessing
             multiprocessing.set_start_method('spawn') 
         return self
