@@ -116,7 +116,10 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
         warnings.filterwarnings('ignore')
         # Calls validation methods.
         for validation in self._validations:
-            getattr(self, f'_validate{validation}')()
+            try:
+                getattr(self, f'_validate{validation}')()
+            except AttributeError:
+                pass
         # Sets multiprocessing technique, if necessary.
         self._set_parallelization()
         # Calls 'complete' if 'automatic' is True.
@@ -238,25 +241,7 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
         return self
          
     """ Dunder Methods """
-
-    # def __getattr__(self, attribute: str) -> Any:
-    #     """[summary]
-
-    #     Args:
-    #         attribute (str): [description]
-
-    #     Raises:
-    #         KeyError: [description]
-
-    #     Returns:
-    #         Any: [description]
-            
-    #     """
-    #     if attribute in self.director.stages:
-    #         getattr(self.director, attribute)
-    #     else:
-    #         raise KeyError(f'{attribute} is not in {self.name}') 
-            
+      
     def __iter__(self) -> Iterable:
         """Returns iterable of a Project's Director instance.
         
