@@ -22,12 +22,6 @@ import more_itertools
 
 import fiat
 
-WorkflowSources: Type = Union[denovo.structures.System, 
-                              denovo.structures.Adjacency, 
-                              denovo.structures.Edges, 
-                              denovo.structures.Matrix, 
-                              denovo.structures.Nodes]
-
 
 @dataclasses.dataclass
 class Section(denovo.quirks.Factory, denovo.containers.Lexicon):
@@ -202,6 +196,10 @@ class Outline(denovo.quirks.Factory, denovo.containers.Lexicon):
     def designs(self) -> Dict[str, str]:
         return self._get_designs()
 
+    @property 
+    def initialization(self) -> Dict[str, Any]:
+        return self._get_initialization()  
+
     @property
     def nodes(self) -> List[str]:
         key_nodes = list(self.connections.keys())
@@ -211,7 +209,7 @@ class Outline(denovo.quirks.Factory, denovo.containers.Lexicon):
 
     @property
     def other(self) -> Dict[str, Any]:
-        return self._get_other()
+        return self._get_other() 
     
     """ Public Methods """
 
@@ -238,7 +236,7 @@ class Outline(denovo.quirks.Factory, denovo.containers.Lexicon):
             Dict[str, str]: [description]
             
         """
-        bases = {}
+        bases = dict(zip(self.nodes, self.nodes))
         for section in self.values():
             bases.update(section.bases)
         return bases
@@ -270,6 +268,20 @@ class Outline(denovo.quirks.Factory, denovo.containers.Lexicon):
         for section in self.values():
             designs.update(section.designs)
         return designs
+
+    def _get_initialization(self) -> Dict[str, Dict[str, Any]]:  
+        """[summary]
+
+        Returns:
+            Dict[str, Dict[str, Any]]: [description]
+            
+        """
+        initialization = collections.defaultdict(dict)
+        keys = [k.endswith('_parameters') for k in self.keys]
+        for key in keys:
+            prefix, suffix = denovo.tools.divide_string(key)
+            initialization[prefix] = self[key]
+        return initialization
     
     def _get_other(self) -> Dict[str, str]:  
         """[summary]

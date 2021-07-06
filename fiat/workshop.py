@@ -56,9 +56,7 @@ def create_workflow(project: fiat.Project, **kwargs) -> fiat.Workflow:
                                    **kwargs)
     return workflow
 
-def outline_to_workflow(outline: fiat.Outline,
-                        library: denovo.containers.Library,
-                        **kwargs) -> fiat.Workflow:
+def outline_to_workflow(outline: fiat.Outline, **kwargs) -> fiat.Workflow:
     """[summary]
 
     Args:
@@ -69,157 +67,13 @@ def outline_to_workflow(outline: fiat.Outline,
         fiat.Workflow: [description]
         
     """
-    suffixes = library.subclasses.suffixes  
-    connections = outline_to_connections(
-        outline = outline,
-        suffixes = suffixes)
-    sections = outline_to_sections(
-        outline = outline,
-        suffixes = suffixes)  
-    all_nodes = (list(connections.keys()) 
-                 + list(itertools.chain.from_iterable(connections.values())))
-    nodes = fiat.tools.deduplicate(iterable = list(all_nodes))
-    bases = outline_to_bases(
-        outline = outline,
-        suffixes = suffixes,
-        nodes = nodes,
-        sections = sections)
-    for name in nodes:
-        outline_to_component(
-            name = name,
-            bases = bases,
-            sections = sections,
-            outline = outline,
-            library = library)
-    workflow = outline_to_graph(
-        outline = outline,
-        library = library,
-        connections = connections,
-        **kwargs)
-    workflow.library = library
-    return workflow
-
-def outline_to_connections(outline: fiat.Outline,
-                           suffixes: Sequence[str]) -> Dict[str, List[str]]:
-    """[summary]
-
-    Args:
-        outline (fiat.Outline): [description]
-        suffixes (Sequence[str]): [description]
-
-    Returns:
-        Dict[str, List[str]]: [description]
-        
-    """    
-    connections = {}
-    for name, section in outline.items():
-        component_keys = [k for k in section.keys() if k.endswith(suffixes)]
-        for key in component_keys:
-            prefix, suffix = fiat.tools.divide_string(key)
-            values = fiat.tools.listify(section[key])
-            if prefix == suffix:
-                if name in connections:
-                    connections[name].extend(values)
-                else:
-                    connections[name] = values
-            else:
-                if prefix in connections:
-                    connections[prefix].extend(values)
-                else:
-                    connections[prefix] = values
-    return connections
-
-def outline_to_sections(outline: fiat.Outline,
-                        suffixes: Sequence[str]) -> Dict[str, str]:
-    """[summary]
-
-    Args:
-        outline (fiat.Outline): [description]
-        suffixes (Sequence[str]): [description]
-
-    Returns:
-        Dict[str, str]: [description]
-        
-    """   
-    sections = {}
-    for name, section in outline.items():
-        component_keys = [k for k in section.keys() if k.endswith(suffixes)]
-        if component_keys:
-            sections[name] = name
-            for key in component_keys:
-                values = fiat.tools.listify(section[key])
-                sections.update(dict.fromkeys(values, name))
-    return sections
-
-def outline_to_bases(outline: fiat.Outline,
-                     suffixes: Sequence[str],
-                     nodes: Dict[str, str],
-                     sections: Dict[str, str]) -> Dict[str, str]:
-    """[summary]
-
-    Args:
-        outline (fiat.Outline): [description]
-        suffixes (Sequence[str]): [description]
-        nodes (Dict[str, str]):
-        sections (Dict[str, str]):
-
-    Returns:
-        Dict[str, str]: [description]
-        
-    """    
-    bases = {}
-    for name in nodes:
-        section = sections[name]
-        component_keys = [
-            k for k in outline[section].keys() if k.endswith(suffixes)]
-        if component_keys:
-            bases[name] = outline_to_base(
-                name = name,
-                section = sections[name],
-                outline = outline)
-            for key in component_keys:
-                prefix, suffix = fiat.tools.divide_string(key)
-                values = fiat.tools.listify(outline[section][key])
-                if suffix.endswith('s'):
-                    design = suffix[:-1]
-                else:
-                    design = suffix            
-                bases.update(dict.fromkeys(values, design))
-    return bases
-
-def outline_to_design(name: str, 
-                      section: str, 
-                      outline: fiat.Outline) -> str:
-    """Gets name of a Component design.
-
-    Args:
-        name (str): name of the Component.
-        section (str):
-        outline (fiat.Outline): Configuration instance that contains
-            either the design corresponding to 'name' or a default design.
-        bases (Dict[str, str]): a set of default bases if one is not found
-             in 'outline'. This might be separately created by the
-             'outline_to_connections' method from 'outline'.
-
-    Returns:
-        str: the name of the design.
-        
-    """
-    try:
-        design = outline[name][f'{name}_design']
-    except KeyError:
-        try:
-            design = outline[name][f'design']
-        except KeyError:
-            try:
-                design = outline[section][f'{name}_design']
-            except KeyError:
-                design = None
-    return design  
+    for name in outline.nodes:
+        outline_to_component(name = name, outline = outline)
+    workflow = fiat.shared.bases.workflow
+    workflow = outline_to_system(outline = outline, **kwargs)
+    return workflow 
  
-def outline_to_graph(outline: fiat.Outline,
-                     library: denovo.container.Library,
-                     connections: Dict[str, List[str]] = None) -> fiat.Workflow:
+def outline_to_system(outline: fiat.Outline) -> fiat.Workflow:
     """[summary]
 
     Args:
@@ -246,13 +100,9 @@ def outline_to_graph(outline: fiat.Outline,
             graph = graph)     
     return graph
 
-def outline_to_component(
-    name: str, 
-    bases: Dict[str, str],
-    sections: Dict[str, str],
-    outline: fiat.Outline,
-    library: nodes.Library,
-    **kwargs) -> nodes.Component:
+def outline_to_component(name: str, 
+                         outline: fiat.Outline, 
+                         **kwargs) -> fiat.base.Component:
     """[summary]
 
     Args:
@@ -270,8 +120,8 @@ def outline_to_component(
         nodes.Component: [description]
     
     """
-    design = bases[name]
-    section = sections[name]
+    design = outline.designs[name] or None
+    base = outline.bases[name]
     initialization = outline_to_initialization(
         name = name, 
         design = design,

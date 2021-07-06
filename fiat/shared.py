@@ -30,6 +30,12 @@ SettingsSources: Type = Union[denovo.configuration.Settings,
                               pathlib.Path, 
                               str]
 
+WorkflowSources: Type = Union[denovo.structures.System, 
+                              denovo.structures.Adjacency, 
+                              denovo.structures.Edges, 
+                              denovo.structures.Matrix, 
+                              denovo.structures.Nodes]
+
 """ Shared Constants """
 
 PARALLELIZE: bool = False
