@@ -10,65 +10,67 @@ import pathlib
 from typing import (Any, Callable, ClassVar, Dict, Iterable, List, Mapping, 
                     Optional, Sequence, Tuple, Type, Union)
 
+import denovo
+
 import fiat
 
 
 @dataclasses.dataclass
-class Parser(fiat.project.Contest):
+class Parser(fiat.workers.Contest):
 
     pass
 
 
 @dataclasses.dataclass
-class Search(fiat.project.Step):
+class Search(fiat.workers.Step):
 
     pass   
 
 
 @dataclasses.dataclass
-class Divide(fiat.project.Step):
+class Divide(fiat.workers.Step):
 
     pass   
     
     
 @dataclasses.dataclass
-class Destroy(fiat.project.Step):
+class Destroy(fiat.workers.Step):
 
     pass   
     
 
 @dataclasses.dataclass
-class Slice(fiat.project.Technique):
+class Slice(fiat.workers.Technique):
 
     pass  
 
 
 @dataclasses.dataclass
-class Dice(fiat.project.Technique):
+class Dice(fiat.workers.Technique):
 
     pass 
     
     
 @dataclasses.dataclass
-class Find(fiat.project.Technique):
+class Find(fiat.workers.Technique):
 
     pass 
 
     
 @dataclasses.dataclass
-class Locate(fiat.project.Technique):
+class Locate(fiat.workers.Technique):
 
     pass 
 
     
 @dataclasses.dataclass
-class Explode(fiat.project.Technique):
+class Explode(fiat.workers.Technique):
 
     pass 
 
     
 @dataclasses.dataclass
-class Dynamite(fiat.project.Technique):
+class Dynamite(fiat.workers.Technique):
     
     name: str = 'annihilate'
 
@@ -79,9 +81,9 @@ def test_project():
         settings = pathlib.Path('tests') / 'project_settings.py',
         automatic = True)
     # Tests base libraries.
-    assert 'parser' in fiat.project.Component.library.subclasses
+    assert 'parser' in fiat.workers.Component.library.subclasses
     dynamite = Dynamite()
-    assert 'annihilate' in fiat.project.Component.library.instances
+    assert 'annihilate' in fiat.workers.Component.library.instances
     # Tests workflow construction.
     print('test project workflow', project.workflow)
     print('test workflow endpoints', str(project.workflow.endpoints))
@@ -90,6 +92,6 @@ def test_project():
 
 
 if __name__ == '__main__':
-    denovo.testing.testify(module_to_test = fiat.interface, 
+    denovo.testing.testify(target_module = fiat.interface, 
                            testing_module = __name__)
     

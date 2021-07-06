@@ -24,7 +24,14 @@ from typing import (Any, Callable, ClassVar, Dict, Hashable, Iterable, List,
 import denovo
 
 
-importables: Dict[str, str] = {'Director': 'base.Director',
+importables: Dict[str, str] = {'base': 'base',
+                               'interface': 'interface',
+                               'nodes': 'nodes',
+                               'shared': 'shared',
+                               'stages': 'stages',
+                               'workers': 'workers',
+                               'workshop': 'workshop',
+                               'Director': 'base.Director',
                                'Parameters': 'base.Parameters',
                                'Project': 'interface.Project',
                                'Task': 'base.Task',

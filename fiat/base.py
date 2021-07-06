@@ -329,10 +329,23 @@ class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
     name: str = None
     contents: Dict[str, List[str]] = dataclasses.field(default_factory = dict)
     parameters: MutableMapping[Hashable, Any] = dataclasses.field(
-        default_factory = Parameters)
+        default_factory = lambda: Parameters)
     iterations: Union[int, str] = 1
 
     """ Public Methods """  
+    
+    def implement(self, project: fiat.Project, **kwargs) -> fiat.Project:
+        """Applies 'contents' to 'project'.
+        
+        Args:
+            project (fiat.Project): instance from which data needed for 
+                implementation should be derived and all results be added.
+
+        Returns:
+            fiat.Project: with possible changes made.
+            
+        """
+        return self._implement_in_serial(project = project, **kwargs)    
 
     def organize(self, subcomponents: Dict[str, List[str]]) -> None:
         """[summary]
@@ -348,19 +361,6 @@ class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
         if nodes:
             self.extend(nodes = nodes)
         return self       
-
-    def implement(self, project: fiat.Project, **kwargs) -> fiat.Project:
-        """Applies 'contents' to 'project'.
-        
-        Args:
-            project (fiat.Project): instance from which data needed for 
-                implementation should be derived and all results be added.
-
-        Returns:
-            fiat.Project: with possible changes made.
-            
-        """
-        return self._implement_in_serial(project = project, **kwargs)    
 
     """ Private Methods """
 
@@ -410,4 +410,3 @@ class Worker(denovo.quirks.Element, collections.abc.Iterable, abc.ABC):
                     organized.append(organized_subcomponents)
         return organized   
   
-   

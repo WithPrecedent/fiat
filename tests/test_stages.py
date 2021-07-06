@@ -95,6 +95,6 @@ def test_workflow():
 
 
 if __name__ == '__main__':
-    denovo.testing.testify(module_to_test = fiat.structures, 
+    denovo.testing.testify(target_module = fiat.structures, 
                            testing_module = __name__)
     
