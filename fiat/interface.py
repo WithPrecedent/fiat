@@ -9,6 +9,7 @@ Contents:
 
 """
 from __future__ import annotations
+from _typeshed import NoneType
 import dataclasses
 import inspect
 import pathlib
@@ -20,7 +21,6 @@ import warnings
 import denovo
 
 import fiat
-
 
 
 @dataclasses.dataclass
@@ -42,8 +42,7 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
             containing the full path of where the root folder should be located 
             for file input and output. A 'clerk' must contain all file path and 
             import/export methods for use throughout fiat. Defaults to the 
-            default Clerk instance. 
-            
+            default Clerk instance.    
         stages (ClassVar[Sequence[Union[str, core.Stage]]]): a list of Stages or 
             strings corresponding to keys in 'core.library'. Defaults to a list 
             of strings listed in the dataclass field.
@@ -67,13 +66,13 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
             
     """
     name: str = None
-    outline: fiat.shared.bases.outline = None
-    workflow: fiat.shared.bases.workflow = None
-    report: fiat.shared.bases.report = None
-    director: fiat.shared.bases.director = None
-    library: fiat.shared.bases.library = fiat.shared.library
-    data: object = None
+    settings: fiat.shared.bases.settings = None
     clerk: fiat.shared.bases.clerk = None
+    director: fiat.shared.bases.director = None
+    stages: Sequence[Union[str, fiat.shared.bases.stage]] = dataclasses.field(
+        default_factory = lambda: ['settings', 'outline', 'workflow', 'report'])
+    library: fiat.shared.bases.library = None
+    data: object = None
     identification: str = None
     automatic: bool = True
     sources: ClassVar[Mapping[Type, str]] = {(fiat.shared.bases.settings,
@@ -82,8 +81,10 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
                                               str): 'settings'}
     validations: ClassVar[MutableSequence[str]] = ['outline'
                                                    'identification',
-                                                   'clerk', 
+                                                   'clerk',
+                                                   'stages',
                                                    'director',
+                                                   'library',
                                                    'workflow']
     
     """ Initialization Methods """
@@ -201,9 +202,12 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     
     def _validate_clerk(self) -> None:
         """Creates or validates 'clerk'."""
-        if self.clerk is None:
+        if isinstance(self.clerk, (str, pathlib.Path, NoneType)):
             self.clerk = fiat.shared.bases.clerk(settings = self.outline)
-        elif not isinstance(self.clerk, fiat.shared.bases.clerk):
+        elif isinstance(self.clerk, fiat.shared.bases.clerk):
+            self.clerk.settings = self.outline
+            self.clerk._add_settings()
+        else:
             raise TypeError('clerk must be a Clerk, str, pathlib.Path, or None '
                             'type')
         return self

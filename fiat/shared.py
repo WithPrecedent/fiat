@@ -44,23 +44,24 @@ VERBOSE: bool = False
 
 """ Shared Mutable Objects """
 
-library: denovo.containers.Library = denovo.containers.Library()
-
-
 @dataclasses.dataclass
 class Bases(denovo.quirks.Importer):
     
     clerk: Union[str, Type] = 'denovo.filing.Clerk'
-    director: Union[str, Type] = 'fiat.base.Director'
+    director: Union[str, Type] = 'fiat.Director'
     library: Union[str, Type] = 'denovo.containers.Library'
-    outline: Union[str, Type] = 'fiat.stages.Outline'
-    parameters: Union[str, Type] = 'fiat.stages.Parameters'
-    report: Union[str, Type] = 'fiat.stages.Report'
-    section: Union[str, Type] = 'fiat.stages.Section'
+    outline: Union[str, Type] = 'fiat.Outline'
+    parameters: Union[str, Type] = 'fiat.Parameters'
+    report: Union[str, Type] = 'fiat.Report'
+    section: Union[str, Type] = 'fiat.Section'
     settings: Union[str, Type] = 'denovo.filing.Settings'
-    task: Union[str, Type] = 'fiat.base.Task'
-    worker: Union[str, Type] = 'fiat.base.Worker'
-    workflow: Union[str, Type] = 'fiat.stages.Workflow'
+    stage: Union[str, Type] = 'fiat.Stage'
+    task: Union[str, Type] = 'fiat.Task'
+    worker: Union[str, Type] = 'fiat.Worker'
+    workflow: Union[str, Type] = 'fiat.Workflow'
     
     
 bases: Bases = Bases()
+
+library: bases.library = bases.library()
+stages: denovo.containers.Catalog = denovo.containers.Catalog()

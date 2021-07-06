@@ -32,9 +32,11 @@ WorkflowSources: Type = Union[denovo.structures.System,
 
 @dataclasses.dataclass
 class Director(collections.abc.Iterator):
+    """Iterator for fiat Project instances.
     
+    
+    """
     project: fiat.Project = None
-    stages: Sequence[str] = dataclasses.field(default_factory = list)
     workshop: ModuleType = denovo.project.workshop
 
     """ Initialization Methods """
@@ -70,7 +72,7 @@ class Director(collections.abc.Iterator):
 
     def complete(self) -> None:
         """Iterates through all stages."""
-        for stage in self.stages:
+        for stage in self.project.stages:
             self.advance()
         return self
         
@@ -292,7 +294,7 @@ class Parameters(denovo.base.Lexicon):
 
 
 @dataclasses.dataclass
-class Stage(denovo.containers.Lexicon, abc.ABC):
+class Stage(denovo.framework.Keystone, abc.ABC):
     
     pass
     
