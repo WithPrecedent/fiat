@@ -54,7 +54,7 @@ class Bases(denovo.quirks.Importer):
     parameters: Union[str, Type] = 'fiat.Parameters'
     report: Union[str, Type] = 'fiat.Report'
     section: Union[str, Type] = 'fiat.Section'
-    settings: Union[str, Type] = 'denovo.filing.Settings'
+    settings: Union[str, Type] = 'denovo.configuration.Settings'
     stage: Union[str, Type] = 'fiat.Stage'
     task: Union[str, Type] = 'fiat.Task'
     worker: Union[str, Type] = 'fiat.Worker'

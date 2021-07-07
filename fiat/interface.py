@@ -9,7 +9,6 @@ Contents:
 
 """
 from __future__ import annotations
-from _typeshed import NoneType
 import dataclasses
 import inspect
 import pathlib
@@ -202,7 +201,7 @@ class Project(denovo.quirks.Element, denovo.quirks.Factory):
     
     def _validate_clerk(self) -> None:
         """Creates or validates 'clerk'."""
-        if isinstance(self.clerk, (str, pathlib.Path, NoneType)):
+        if isinstance(self.clerk, (str, pathlib.Path, type(None))):
             self.clerk = fiat.shared.bases.clerk(settings = self.outline)
         elif isinstance(self.clerk, fiat.shared.bases.clerk):
             self.clerk.settings = self.outline
