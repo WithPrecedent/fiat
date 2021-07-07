@@ -23,12 +23,6 @@ import more_itertools
 
 import fiat
 
-WorkflowSources: Type = Union[denovo.structures.System, 
-                              denovo.structures.Adjacency, 
-                              denovo.structures.Edges, 
-                              denovo.structures.Matrix, 
-                              denovo.structures.Nodes]
- 
 
 @dataclasses.dataclass
 class Director(collections.abc.Iterator):
